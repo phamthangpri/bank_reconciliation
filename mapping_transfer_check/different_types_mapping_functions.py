@@ -74,7 +74,7 @@ def mapping_npaiement_1ord(
         step = 2
         for nb_days in np.arange(4,nbdays_agreges+step,step=step): 
             ## Agréger les données de paiement par l'intervale de date
-            df_paiement_agg = agreger_par_interval_date(df_paiement,id_paiement,colonne_nomClient,colonne_date,colonne_montant,nb_days)
+            df_paiement_agg = aggregate_by_date(df_paiement,id_paiement,colonne_nomClient,colonne_date,colonne_montant,nb_days)
             if len(df_paiement_agg)>0:
                 # rapprocher avec le paiement agrégé
                 if is_lightcheck :
@@ -96,9 +96,18 @@ def mapping_npaiement_1ord(
                     df_BO = df_BO[~df_BO.order_id.isin(df_rapproche.order_id)]
     return df_rapproche,df_paiement,df_BO
 
-def mapping_1paiement_nord(df_rapproche: pd.DataFrame,df_paiement: pd.DataFrame,df_BO: pd.DataFrame,
-    colonnes_nomClient_paiement: str=None,colonne_date: str=None,colonne_montant: str=None,id_paiement: str=None,
-    motif: str=None,nb_jours_intervalle:int = 2,seuil_montant: float=5,min_score:int = 90):
+def mapping_1paiement_nord(
+    df_rapproche: pd.DataFrame,
+    df_paiement: pd.DataFrame,
+    df_BO: pd.DataFrame,
+    colonnes_nomClient_paiement: str=None,
+    colonne_date: str=None,
+    colonne_montant: str=None,
+    id_paiement: str=None,
+    motif: str=None,
+    nb_jours_intervalle:int = 2,
+    seuil_montant: float=5,
+    min_score:int = 90):
     '''Cette fonction permet de rapprocher plusieurs ordres pour un paiement.
     Pour ça, il va agréger les données de BO sur une intervalle de date et utiliser la fonction mapping_paiement_unique (car les ordres agrégés = 1 ordre)
     ''' 
@@ -110,7 +119,7 @@ def mapping_1paiement_nord(df_rapproche: pd.DataFrame,df_paiement: pd.DataFrame,
         colonne_date_bo = 'creation_date'
         colonne_montant_bo = 'total_amount'
         ### agréger les ordres
-        df_BO_agg = agreger_par_interval_date(df_BO,id_paiement_bo,colonne_nomClient_bo,colonne_date_bo,colonne_montant_bo,nb_days)
+        df_BO_agg = aggregate_by_date(df_BO,id_paiement_bo,colonne_nomClient_bo,colonne_date_bo,colonne_montant_bo,nb_days)
         if len(df_BO_agg) >0:
             df_BO_agg.loc[:,'Start_Date'] = df_BO_agg.creation_date
             df_BO_agg.loc[:,'End_Date'] = df_BO_agg.creation_date+dt.timedelta(days=+nb_jours_intervalle)
@@ -135,9 +144,19 @@ def mapping_1paiement_nord(df_rapproche: pd.DataFrame,df_paiement: pd.DataFrame,
                 df_BO = df_BO[~df_BO.order_id.isin(df_rapproche.order_id)]
     return df_rapproche,df_paiement,df_BO
 
-def mapping_plspersonnes(df_rapproche:pd.DataFrame, df_paiement: pd.DataFrame, df_BO: pd.DataFrame, 
-                         colonnes_nomClient_paiement: str=None,colonne_date: str=None, colonne_montant: str=None, id_paiement: str=None, 
-                         motif: str=None, nb_jours_intervalle:int = 2, seuil_montant: float=5,min_score:int=90, is_bo: bool=True):
+def mapping_plspersonnes(
+    df_rapproche:pd.DataFrame, 
+    df_paiement: pd.DataFrame, 
+    df_BO: pd.DataFrame, 
+    colonnes_nomClient_paiement: str=None,
+    colonne_date: str=None, 
+    colonne_montant: str=None, 
+    id_paiement: str=None,
+    motif: str=None, 
+    nb_jours_intervalle:int = 2, 
+    seuil_montant: float=5,
+    min_score:int=90, 
+    is_bo: bool=True):
     '''Chercher les contrats 2PP, concaténer les colonnes subscriber_name et cosubscriber_name 
     pour avoir 1 ord avec 2 lignes et 2 personnes différentes. 
     On va ensuite rapprocher ces lignes avec le paiement, et faire la somme des paiements pour comparer le montant
@@ -182,9 +201,17 @@ def mapping_plspersonnes(df_rapproche:pd.DataFrame, df_paiement: pd.DataFrame, d
         df_paiement = df_paiement[~df_paiement[id_paiement].isin(df_match[id_paiement])]
     return df_rapproche, df_paiement,df_BO
 
-def mapping_lightcheck_paiementunique(df_rapproche: pd.DataFrame, df_paiement: pd.DataFrame, df_BO: pd.DataFrame, 
-                                      colonnes_nomClient_paiement: str=None, colonne_date: str=None, colonne_montant: str=None, 
-                                      id_paiement: str=None, motif:str = None, seuil_montant: float=5, colonne_nom_bo: str='subscriber_name'):
+def mapping_lightcheck_paiementunique(
+    df_rapproche: pd.DataFrame, 
+    df_paiement: pd.DataFrame, 
+    df_BO: pd.DataFrame, 
+    colonnes_nomClient_paiement: str=None, 
+    colonne_date: str=None, 
+    colonne_montant: str=None,
+    id_paiement: str=None, 
+    motif:str = None, 
+    seuil_montant: float=5, 
+    colonne_nom_bo: str='subscriber_name'):
     '''Cette fonction permet de rapprocher avec une règle moins stricte : on cherche s'il y a le nom du client en commumn
     entre le paiement et le BO. 
     '''

@@ -3,7 +3,7 @@ import pandas as pd
 import sqlite3
 from utils.utils import *
 
-def agreger_par_interval_date(df_paiement: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
+def aggregate_by_date(df_paiement: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     """
     Aggregates all transactions within a specified number of days for a person for each date.
 
@@ -26,10 +26,8 @@ def agreger_par_interval_date(df_paiement: pd.DataFrame, *args, **kwargs) -> pd.
     colonne_montant = kwargs.get('colonne_montant')
     nb_days = kwargs.get('nb_days', 2)
     
-    # Etape 1: agréger les virements pour la même date et même personne pour éviter les doublons dans les étapes suivantes
-    ### ie concaténer paiement1 et paiement2 => ça devient paiement12
-    # 2.1 ajouter l'intervale 
-    # Filter and aggregate by the same date and same person to avoid duplicates
+    # Etape 1: aggregate transfers from the same client and same date to avoid creating duplicates on the next steps
+    ### ie concatenate paiement1 and paiement2 => paiement12
     df_paiement = df_paiement[(df_paiement[colonne_nomClient]!='') & (~df_paiement[colonne_nomClient].isnull())]
     if len(df_paiement)>0:
         df_paiement_agrege = df_paiement.groupby(by=[colonne_nomClient,colonne_date]).\
@@ -37,8 +35,8 @@ def agreger_par_interval_date(df_paiement: pd.DataFrame, *args, **kwargs) -> pd.
                                                         id_paiement : "|".join   # concaténer les Id sys pour la même personne
                                                         }).reset_index()
 
-        #Etape 2: chercher les virements dans l'interval de x jours (nb_days)
-        # 2.1 ajouter l'intervale
+        #Etape 2: looking for the transfers during a period of  x days (nb_days)
+        # 2.1 add period
         df1 = df_paiement_agrege[[id_paiement,colonne_nomClient,colonne_date,colonne_montant]].sort_values(by=[colonne_nomClient,colonne_date])
         df2 = df1.copy()
         id_paiement_2 = id_paiement +"_2"
@@ -49,7 +47,7 @@ def agreger_par_interval_date(df_paiement: pd.DataFrame, *args, **kwargs) -> pd.
 
         df1["End_date"] = df1[colonne_date]+dt.timedelta(days=+int(nb_days))
 
-        # 2.2 flagger les virements dans l'intervale
+        # 2.2 flag all transfers in that period
         conn = sqlite3.connect(':memory:')
         df1.to_sql('df1', conn, index=False)
         df2.to_sql('df2', conn, index=False)
@@ -64,27 +62,27 @@ def agreger_par_interval_date(df_paiement: pd.DataFrame, *args, **kwargs) -> pd.
 
         df_match_date_sup = pd.read_sql_query(qry,conn)
 
-        #2.3 supprimer les paiements déjà pris l'intervale du virement de la date de départ (ie enlever les doublons)
-        ### normalement ça va créer 3 lignes : paiement12 et paiement3, paiement12 et paiement4, paiement3 et paiement4
-        ### il faut donc suppprimer la ligne paiement3 et paiement4
+        #2.3 remove all payments already taken in the period of x days from the start date
+        ### it will create 3 rows : paiement12 et paiement3, paiement12 et paiement4, paiement3 and paiement4
+        ### needs to remove paiement3 et paiement4
         list_idsys2 = set(list(df_match_date_sup[id_paiement_2])) # list des Id sys qui sont déjà utilisés
         list_idsys_agreges = set(list(df_match_date_sup[id_paiement_2])+list(df_match_date_sup[id_paiement])) # tous les id sys
         df_match_date_sup = df_match_date_sup[~df_match_date_sup[id_paiement].isin(list_idsys2)] # enlever les lignes déjà utilisés
         list_idsys = set(list(df_match_date_sup[id_paiement])) #+list_concat_meme_date
 
-        # 2.4 rajouter les virements de la date de départ
-        ### ajouter la ligne paiement12 et paiement12 pour faire le groupby
+        # 2.4 add transfer data to the start date
+        ### add paiement12 and paiement12 to make groupby
          # Add initial transactions
         df_date0_to_add = df_paiement_agrege[df_paiement_agrege[id_paiement].isin(list_idsys)] 
         df_date0_to_add[id_paiement_2] = df_date0_to_add[id_paiement]
         df_date0_to_add[colonne_montant_2] = df_date0_to_add[colonne_montant]
 
-        ### les lignes unitaires pour les gens qui n'ont pas fait pls virements ou les personnes qui ont fait 2 virement le même jour
+        ### records on people who didn't make several transfers or who did 2 transfers in a day
         df_not_agrege = df_paiement_agrege[~df_paiement_agrege[id_paiement].isin(list_idsys_agreges)]
         df_not_agrege[id_paiement_2] = df_not_agrege[id_paiement]
         df_not_agrege[colonne_montant_2] = df_not_agrege[colonne_montant]
 
-        # 2.5 : agréger les données
+        # 2.5 : aggregate data
         ### df_match_date_sup :  paiement12 et paiement3, paiement12 et paiement4
         ### df_date0_to_add :  paiement12 et paiement12
         ### df_not_agrege : lignes unitaires
