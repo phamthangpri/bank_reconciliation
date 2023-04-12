@@ -49,7 +49,6 @@ This project aims to reconcile bank statements with back office data. There are 
 ## Scripts
 - **reconcile.py**: Main script to perform the bank reconciliation.
 - **utils**: Utility functions used in the reconciliation process.
-- **report_generator.py**: Script to generate detailed reconciliation reports.
 
 ## Configuration
 - Ensure your MT940 files and back office data are formatted correctly.

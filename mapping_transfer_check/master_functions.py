@@ -15,17 +15,6 @@ from mapping_transfer_check.different_types_mapping_functions import *
         + min_score : pourcentage minimum accepté pour le score de similarité
         + bo_name_col : nom de la colonne Nom de client de la table BO
 '''
-kwargs = {
-    'date_colname':'date_colname',
-    'amount_colname':'amount_colname',
-    'id_paiement':'id_paiement',
-    'motif':'motif',
-    'amount_threshold':'amount_threshold',
-    'min_score':'min_score',
-    'nb_days_period':'nb_days_period',
-    'mapping_type':'mapping_type',
-    'bo_name_col':'bo_name_col'
-}
 
 def mapping_paiement_bo(
     df_rapproche: pd.DataFrame,
@@ -58,8 +47,8 @@ def mapping_paiement_bo(
         df_rapproche['mauvais_compte'] = ''
     
     if not df_paiement_a_traiter.empty:
-        for product_code in df_paiement_a_traiter['iban_product'].unique():
-            df_paiement = df_paiement_a_traiter[df_paiement_a_traiter['iban_product'] == product_code]
+        for product_code in df_paiement_a_traiter['account_num'].unique():
+            df_paiement = df_paiement_a_traiter[df_paiement_a_traiter['account_num'] == product_code]
             
             # Separate BO table into two
             df_BO_fonds = df_BO_a_traiter[df_BO_a_traiter.product_code == product_code]
@@ -67,7 +56,7 @@ def mapping_paiement_bo(
             df_BO_a_traiter = pd.DataFrame()
             
             for df_BO in [df_BO_fonds, df_BO_autre]:
-                mauvais_compte = len(df_paiement['iban_product'].unique()) != len(df_BO.product_code.unique())
+                mauvais_compte = len(df_paiement['account_num'].unique()) != len(df_BO.product_code.unique())
                 
                 if mapping_type == 'basic':
                     # 1. Unique Payment

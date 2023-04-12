@@ -69,7 +69,7 @@ def master_project(entity: str, df_mapping_col: pd.DataFrame,
         print(f'Number of transfer lines to process: {len(df_virement)}')
         client_payment_columns = ['reference1', 'reference2', 'clientname']
         date_column, amount_column, payment_id = 'effective_date', 'amount', 'id_sys'
-        columns_to_keep = ['transaction_details', 'iban_product']
+        columns_to_keep = ['transaction_details', 'account_num']
         df_virement_final = master_mapping_transfer_check(
             entity, df_virement, df_BO_vir, df_mapping_col, columns_to_keep,
             client_payment_columns, date_column, amount_column, payment_id,
@@ -80,26 +80,26 @@ def master_project(entity: str, df_mapping_col: pd.DataFrame,
     # 4.2 Reconcile checks
     if len(df_cheque) > 0:
         print('RECONCILIATION OF CHECKS')
-        df_cheque = df_cheque.rename(columns={'Produit': 'iban_product'})
+        df_cheque = df_cheque.rename(columns={'Produit': 'account_num'})
         columns = df_mapping_col[~df_mapping_col[entity].isnull()]['column'].tolist()
         df_BO_chq = df_BO_chq[columns]
         if entity == 'ABCD':
-            df_cheque = df_cheque[df_cheque['iban_product'].isin(['PD1', 'PD2', 'PD3'])]
+            df_cheque = df_cheque[df_cheque['account_num'].isin(['PD1', 'PD2', 'PD3'])]
         else:
-            df_cheque = df_cheque[~df_cheque['iban_product'].isin(['PD1', 'PD2', 'PD3'])]
+            df_cheque = df_cheque[~df_cheque['account_num'].isin(['PD1', 'PD2', 'PD3'])]
 
         print(f'Number of checks to reconcile: {len(df_cheque)},\n' +
               f'Number of BO checks to reconcile: {len(df_BO_chq)}')
 
         client_payment_columns = ['Titulaire']
         date_column, amount_column, payment_id = 'DateReception', 'Montant', 'id_cheque'
-        columns_to_keep = ['iban_product', 'NumCheque', 'Nbordereau', 'DateCheque']
+        columns_to_keep = ['account_num', 'NumCheque', 'Nbordereau', 'DateCheque']
         df_cheque_final = master_mapping_transfer_check(
             entity, df_cheque, df_BO_chq, df_mapping_col, columns_to_keep,
             client_payment_columns, date_column, amount_column, payment_id,
             amount_threshold, min_score, column_name_bo, dict_nb_days
         )
-        df_cheque_final = df_cheque_final.rename(columns={'iban_product': 'Destinataire'})
+        df_cheque_final = df_cheque_final.rename(columns={'account_num': 'Destinataire'})
         dict_result_project['cheque'] = df_cheque_final
 
     # 4.3 Verify direct debit data
