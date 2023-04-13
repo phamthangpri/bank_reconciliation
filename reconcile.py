@@ -115,7 +115,7 @@ def master_project(entity: str, df_mapping_col: pd.DataFrame, df_releve: pd.Data
         
         df_cheque_final = master_mapping_transfer_check(entity, df_cheque, df_BO_chq, df_mapping_col, col_paiements_a_garder,
                                                         colonnes_nomClient_paiement, **kwargs)
-        df_cheque_final = df_cheque_final.rename(columns={'account_num': 'Destinataire'})
+        df_cheque_final = df_cheque_final.rename(columns={'account_num': 'receiving_account'})
         dict_resultat_project['cheque'] = df_cheque_final
     
     ### 4.3 Verify direct debit data:
