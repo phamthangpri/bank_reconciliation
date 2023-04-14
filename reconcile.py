@@ -65,22 +65,23 @@ def master_project(entity: str, df_mapping_col: pd.DataFrame, df_releve: pd.Data
         print(f'RECONCILING TRANSFERS')
         print(f'Number of transfer lines to process: {len(df_virement)}')
         
-        colonnes_nomClient_paiement = ['reference1', 'reference2', 'clientname']
+        list_cols_clientname_payment = ['reference1', 'reference2', 'clientname']
         date_colname, amount_colname, id_paiement = 'effective_date', 'amount', 'id'
-        col_paiements_a_garder = ['transaction_details', 'account_code']
+        col_paiements_to_keep = ['transaction_details', 'account_code']
         
         kwargs = {
-            'date_colname': date_colname,
-            'amount_colname': amount_colname,
-            'id_paiement': id_paiement,
-            'amount_threshold': amount_threshold,
-            'min_score': min_score,
-            'nb_days_period': dict_nb_jours,
-            'bo_name_col': bo_name_col
+            'date_colname'                 : date_colname,
+            'amount_colname'               : amount_colname,
+            'id_paiement'                  : id_paiement,
+            'amount_threshold'             : amount_threshold,
+            'min_score'                    : min_score,
+            'bo_name_col'                  : bo_name_col,
+            'dict_nb_jours'                : dict_nb_jours,
+            'list_cols_clientname_payment' : list_cols_clientname_payment
         }
         
-        df_virement_final = master_mapping_transfer_check(entity, df_virement, df_BO_vir, df_mapping_col, col_paiements_a_garder,
-                                                          colonnes_nomClient_paiement, **kwargs)
+        df_virement_final = master_mapping_transfer_check(entity, df_virement, df_BO_vir, df_mapping_col, col_paiements_to_keep,
+                                                          **kwargs)
         dict_resultat_project['virement'] = df_virement_final
     
     ### 4.2 Reconcile checks:
@@ -99,22 +100,23 @@ def master_project(entity: str, df_mapping_col: pd.DataFrame, df_releve: pd.Data
         print(f'Number of check lines to reconcile: {len(df_cheque)},\n'+
               f'Number of BO check lines to reconcile: {len(df_BO_chq)}')
         
-        colonnes_nomClient_paiement = ['Titulaire']
+        list_cols_clientname_payment = ['Titulaire']
         date_colname, amount_colname, id_paiement = 'DateReception', 'Montant', 'id_cheque'
-        col_paiements_a_garder = ['account_num', 'NumCheque', 'Nbordereau', 'DateCheque']
+        col_paiements_to_keep = ['account_num', 'NumCheque', 'Nbordereau', 'DateCheque']
         
         kwargs = {
-            'date_colname': date_colname,
-            'amount_colname': amount_colname,
-            'id_paiement': id_paiement,
-            'amount_threshold': amount_threshold,
-            'min_score': min_score,
-            'nb_days_period': dict_nb_jours,
-            'bo_name_col': bo_name_col
+            'date_colname'                 : date_colname,
+            'amount_colname'               : amount_colname,
+            'id_paiement'                  : id_paiement,
+            'amount_threshold'             : amount_threshold,
+            'min_score'                    : min_score,
+            'bo_name_col'                  : bo_name_col,
+            'dict_nb_jours'                : dict_nb_jours,
+            'list_cols_clientname_payment' : list_cols_clientname_payment
         }
         
-        df_cheque_final = master_mapping_transfer_check(entity, df_cheque, df_BO_chq, df_mapping_col, col_paiements_a_garder,
-                                                        colonnes_nomClient_paiement, **kwargs)
+        df_cheque_final = master_mapping_transfer_check(entity, df_cheque, df_BO_chq, df_mapping_col, col_paiements_to_keep,
+                                                         **kwargs)
         df_cheque_final = df_cheque_final.rename(columns={'account_num': 'receiving_account'})
         dict_resultat_project['cheque'] = df_cheque_final
     
