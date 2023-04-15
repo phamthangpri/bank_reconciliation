@@ -33,11 +33,11 @@ def master_project(entity: str, df_mapping_col: pd.DataFrame, df_releve: pd.Data
     
     ############# Step 1: Select MT940 data: #############
     dict_result = clean_data_mt940(df_releve, entity)
-    df_virement = dict_result['Virement']
-    df_releve_cheque = dict_result['Cheque']  # To add the step releve_cheque vs remise_chèque to get id_sys
-    df_releve_prlv = dict_result['Prelevement']
-    df_rejet_cheque = dict_result['Rejet_cheque']
-    df_rejet_prlv = dict_result['Rejet_prlv']
+    df_virement = dict_result['Transfer']
+    df_releve_cheque = dict_result['Check']  # To add the step releve_cheque vs remise_chèque to get id_sys
+    df_releve_prlv = dict_result['Direct_debit']
+    df_rejet_cheque = dict_result['Check_rejected']
+    df_rejet_prlv = dict_result['Direct_debit_rejected']
 
     ############# Step 2: Clean check deposit data #############
     df_cheque = clean_data_check(df_cheque)
@@ -55,7 +55,7 @@ def master_project(entity: str, df_mapping_col: pd.DataFrame, df_releve: pd.Data
 
     dict_nb_jours = {
         'ABCD_PP': 60,
-        'ABCD_Démembrement': 180,
+        'ABCD_DM': 180,
         'XYZ': 20
     }
     min_score = 90
@@ -82,12 +82,12 @@ def master_project(entity: str, df_mapping_col: pd.DataFrame, df_releve: pd.Data
         
         df_virement_final = master_mapping_transfer_check(entity, df_virement, df_BO_vir, df_mapping_col, col_paiements_to_keep,
                                                           **kwargs)
-        dict_resultat_project['virement'] = df_virement_final
+        dict_resultat_project['Transfer'] = df_virement_final
     
     ### 4.2 Reconcile checks:
     if len(df_cheque) > 0:
         print(f'RECONCILING CHECKS')
-        df_cheque = df_cheque.rename(columns={'Produit': 'account_num'})
+        df_cheque = df_cheque.rename(columns={'Product': 'account_num'})
         
         colonnes = df_mapping_col[~df_mapping_col[entity].isnull()]['column'].to_list()
         df_BO_chq = df_BO_chq[colonnes]
@@ -100,9 +100,9 @@ def master_project(entity: str, df_mapping_col: pd.DataFrame, df_releve: pd.Data
         print(f'Number of check lines to reconcile: {len(df_cheque)},\n'+
               f'Number of BO check lines to reconcile: {len(df_BO_chq)}')
         
-        list_cols_clientname_payment = ['Titulaire']
-        date_colname, amount_colname, id_paiement = 'DateReception', 'Montant', 'id_cheque'
-        col_paiements_to_keep = ['account_num', 'NumCheque', 'Nbordereau', 'DateCheque']
+        list_cols_clientname_payment = ['check_holder']
+        date_colname, amount_colname, id_paiement = 'reception_date', 'amount', 'check_id'
+        col_paiements_to_keep = ['account_num', 'check_amount', 'doc_num', 'check_date']
         
         kwargs = {
             'date_colname'                 : date_colname,
@@ -118,13 +118,13 @@ def master_project(entity: str, df_mapping_col: pd.DataFrame, df_releve: pd.Data
         df_cheque_final = master_mapping_transfer_check(entity, df_cheque, df_BO_chq, df_mapping_col, col_paiements_to_keep,
                                                          **kwargs)
         df_cheque_final = df_cheque_final.rename(columns={'account_num': 'receiving_account'})
-        dict_resultat_project['cheque'] = df_cheque_final
+        dict_resultat_project['Check'] = df_cheque_final
     
     ### 4.3 Verify direct debit data:
     if len(df_releve_prlv) > 0:
         df_prlv_sub.session_id = df_prlv_sub.session_id.str.upper()
         df_resultat_prlv = check_direct_debit(df_prlv_sub, df_releve_prlv, entity)
-        dict_resultat_project['prelevement'] = df_resultat_prlv
+        dict_resultat_project['Direct_debit'] = df_resultat_prlv
     
     ############ Step 5: Reconcile debits: #############
     if len(df_rejet_cheque) > 0:
@@ -134,6 +134,6 @@ def master_project(entity: str, df_mapping_col: pd.DataFrame, df_releve: pd.Data
         
         df_merge_check_rejects = master_mapping_check_rejection(df_rejet_cheque, df_cheque,
                                                                 checknum_column, checkamount_column, checkdate_column, checkproduct_column)
-        dict_resultat_project['check_notpaid'] = df_merge_check_rejects
+        dict_resultat_project['check_rejected'] = df_merge_check_rejects
     
     return dict_resultat_project

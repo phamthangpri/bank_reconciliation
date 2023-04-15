@@ -42,30 +42,30 @@ def clean_data_mt940(df_releve: pd.DataFrame, entity: str) -> dict:
 
     # Identify rejected transactions
     df_debit = df_releve_fr[df_releve_fr.sense == 'D']
-    df_rejet = df_debit[df_debit.transaction_type=='Rejet / impayé']
+    df_rejet = df_debit[df_debit.transaction_type=='Rejected / Not paid']
 
-    mask = df_rejet.transaction_details.str.contains('ANNULATION FICHIER|CHEQUE IMPAYE')
+    mask = df_rejet.transaction_details.str.contains('CHECK CANCELED|CHECK NOT PAID')
     df_rejet_cheque = df_rejet[mask]
     df_rejet_prlv = df_rejet[~mask]
     dict_result = {
-                'Virement'   : df_virement,
-                'Cheque'      : df_releve_cheque,
-                'Prelevement' : df_releve_prlv,
-                'Rejet_cheque': df_rejet_cheque,
-                'Rejet_prlv'  : df_rejet_prlv
+                'Transfer'   : df_virement,
+                'Check'      : df_releve_cheque,
+                'Direct_debit' : df_releve_prlv,
+                'Check_rejected': df_rejet_cheque,
+                'Direct_debit_rejected'  : df_rejet_prlv
                }
     return dict_result
 
 def clean_data_check(df_cheque:pd.DataFrame):
-    df_cheque['Produit'] = df_cheque['Destinataire'].map({'PRODUIT1':'PD1', 
-                                                         'PRODUIT2':'PD2', 
-                                                         'PRODUIT3':'PD3', 
-                                                         'PRODUIT4':'PD4'})
-    df_cheque['Titulaire'] = df_cheque['Titulaire'].apply(clean_name)
-    df_cheque['NumCheque'] = df_cheque['NumCheque'].apply(clean_num_cheque)
-    if 'Nbordereau' in df_cheque.columns:
-        df_cheque['Nbordereau'] = df_cheque['Nbordereau'].apply(clean_num_cheque)
-    if 'NuméroOrdre' in df_cheque.columns:
+    df_cheque['Product'] = df_cheque['Receiver'].map({  'PRODUIT1':'PD1', 
+                                                        'PRODUIT2':'PD2', 
+                                                        'PRODUIT3':'PD3', 
+                                                        'PRODUIT4':'PD4'})
+    df_cheque['check_holder'] = df_cheque['check_holder'].apply(clean_name)
+    df_cheque['check_number'] = df_cheque['check_number'].apply(clean_num_cheque)
+    if 'doc_num' in df_cheque.columns:
+        df_cheque['doc_num'] = df_cheque['doc_num'].apply(clean_num_cheque)
+    if 'ord_num' in df_cheque.columns:
         df_cheque = df_cheque[(df_cheque.NuméroOrdre.isnull()) & (df_cheque.DateReception>='2023-01-01')]
     return df_cheque
 
@@ -82,9 +82,9 @@ def clean_data_BO(df_mapping_col:pd.DataFrame,df_BO:pd.DataFrame,entity:str):
     ### Splitter en virements et chèque
     if entity == 'ABCD':
         df_BO = df_BO[~df_BO.order_status.isin(['Cancelled','Refused'])]
-        df_BO_chq = df_BO[df_BO.payment_mode=='Chèque']
-        df_BO_vir = df_BO[df_BO.payment_mode.isin(['Financement', 'Virement'])]
+        df_BO_chq = df_BO[df_BO.payment_mode=='Check']
+        df_BO_vir = df_BO[df_BO.payment_mode.isin(['Funding', 'Transfer'])]
     else:
-        df_BO_chq = df_BO[df_BO.payment_mode=='Bank cheque']
+        df_BO_chq = df_BO[df_BO.payment_mode=='Bank check']
         df_BO_vir = df_BO[df_BO.payment_mode.isin(['Direct Transfer'])]
     return df_BO_vir,df_BO_chq

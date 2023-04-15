@@ -207,9 +207,6 @@ def master_mapping_transfer_check(
     date_colname = kwargs.get('date_colname')
     amount_colname = kwargs.get('amount_colname')
     id_paiement = kwargs.get('id_paiement')
-    amount_threshold = kwargs.get('amount_threshold', 5)
-    min_score = kwargs.get('min_score', 90)
-    bo_name_col = kwargs.get('bo_name_col')
     dict_nb_jours = kwargs.get('dict_nb_jours', {})
 
     # Retain only necessary columns in the payment DataFrame and preserve column order
@@ -231,7 +228,7 @@ def master_mapping_transfer_check(
                                                                              list_cols_clientname_payment, **kwargs)
 
         # Process dismemberment
-        nb_days_period = dict_nb_jours['ABCD_Démembrement']
+        nb_days_period = dict_nb_jours['ABCD_DM']
         df_BO_dm['Start_Date'] = df_BO_dm['creation_date']
         df_BO_dm['End_Date'] = df_BO_dm['creation_date'] + dt.timedelta(days=nb_days_period)
         df_rapproche_dm, df_paiement, df_BO_dm = master_mapping_bo_paiement(df_paiement, df_BO_dm,
