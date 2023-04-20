@@ -12,7 +12,7 @@ def aggregate_by_date(df_payment: pd.DataFrame, *args, **kwargs) -> pd.DataFrame
     - *args: Additional positional arguments.
     - **kwargs: Additional keyword arguments. Must include:
         - payment_id: Unique identifier for the payment.
-        - colonne_nomClient: Column name for the client's name.
+        - clientname_col: Column name for the client's name.
         - date_colname: Column name for the date.
         - amount_colname: Column name for the amount.
         - nb_days: Number of days interval to aggregate (default 2).
@@ -21,29 +21,29 @@ def aggregate_by_date(df_payment: pd.DataFrame, *args, **kwargs) -> pd.DataFrame
     - DataFrame with aggregated payments.
     """
     payment_id = kwargs.get('payment_id')
-    colonne_nomClient = kwargs.get('colonne_nomClient')
+    clientname_col = kwargs.get('clientname_col')
     date_colname = kwargs.get('date_colname')
     amount_colname = kwargs.get('amount_colname')
     nb_days = kwargs.get('nb_days', 2)
     
     # Etape 1: aggregate transfers from the same client and same date to avoid creating duplicates on the next steps
     ### ie concatenate paiement1 and paiement2 => paiement12
-    df_payment = df_payment[(df_payment[colonne_nomClient]!='') & (~df_payment[colonne_nomClient].isnull())]
+    df_payment = df_payment[(df_payment[clientname_col]!='') & (~df_payment[clientname_col].isnull())]
     if len(df_payment)>0:
-        df_payment_agrege = df_payment.groupby(by=[colonne_nomClient,date_colname]).\
+        df_payment_agrege = df_payment.groupby(by=[clientname_col,date_colname]).\
                                                     agg({amount_colname:'sum',\
                                                         payment_id : "|".join   # concaténer les Id sys pour la même personne
                                                         }).reset_index()
 
         #Etape 2: looking for the transfers during a period of  x days (nb_days)
         # 2.1 add period
-        df1 = df_payment_agrege[[payment_id,colonne_nomClient,date_colname,amount_colname]].sort_values(by=[colonne_nomClient,date_colname])
+        df1 = df_payment_agrege[[payment_id,clientname_col,date_colname,amount_colname]].sort_values(by=[clientname_col,date_colname])
         df2 = df1.copy()
         payment_id_2 = payment_id +"_2"
-        colonne_nomClient_2 = colonne_nomClient +"_2"
+        clientname_col_2 = clientname_col +"_2"
         date_colname_2 = date_colname +"_2"
         amount_colname_2 = amount_colname+"_2"
-        df2.columns = [payment_id_2,colonne_nomClient_2 ,date_colname_2,amount_colname_2]
+        df2.columns = [payment_id_2,clientname_col_2 ,date_colname_2,amount_colname_2]
 
         df1["End_date"] = df1[date_colname]+dt.timedelta(days=+int(nb_days))
 
@@ -55,7 +55,7 @@ def aggregate_by_date(df_payment: pd.DataFrame, *args, **kwargs) -> pd.DataFrame
             SELECT * 
             FROM df1 
             JOIN df2 
-            ON df1.{colonne_nomClient} = df2.{colonne_nomClient_2}
+            ON df1.{clientname_col} = df2.{clientname_col_2}
             AND df2.{date_colname_2} <= df1.End_date 
             AND df2.{date_colname_2} > df1.{date_colname}
         '''
@@ -86,7 +86,7 @@ def aggregate_by_date(df_payment: pd.DataFrame, *args, **kwargs) -> pd.DataFrame
         ### df_match_date_sup :  paiement12 et paiement3, paiement12 et paiement4
         ### df_date0_to_add :  paiement12 et paiement12
         ### df_not_agrege : lignes unitaires
-        df_match_date_sup = pd.concat([df_match_date_sup,df_date0_to_add,df_not_agrege]).sort_values([colonne_nomClient,date_colname])
+        df_match_date_sup = pd.concat([df_match_date_sup,df_date0_to_add,df_not_agrege]).sort_values([clientname_col,date_colname])
         df_match_date_sup[date_colname] = pd.to_datetime(df_match_date_sup[date_colname])
 
         # Prendre la date
@@ -96,12 +96,12 @@ def aggregate_by_date(df_payment: pd.DataFrame, *args, **kwargs) -> pd.DataFrame
                                                                                 f[date_colname_2]), axis=1 )
         df_match_date_sup[date_colname_2] = pd.to_datetime(df_match_date_sup[date_colname_2],format = '%Y-%m-%d %H:%M:%S')
         df_match_date_sup = df_match_date_sup.groupby(by=[payment_id,date_colname]).agg({amount_colname_2:"sum",
-                                                                    colonne_nomClient:'first',
+                                                                    clientname_col:'first',
                                                                     payment_id_2: "|".join,
                                                                     date_colname_2:"max"
                                                                 }).reset_index()
         df_match_date_sup[payment_id] = df_match_date_sup[payment_id].apply(lambda x: x.split("|")[0] if "|" in x else x)
-        df_match_date_sup = df_match_date_sup[[payment_id_2,date_colname,colonne_nomClient,amount_colname_2,date_colname_2]]
+        df_match_date_sup = df_match_date_sup[[payment_id_2,date_colname,clientname_col,amount_colname_2,date_colname_2]]
         df_match_date_sup = df_match_date_sup.rename(columns={payment_id_2:payment_id,amount_colname_2:amount_colname,date_colname_2:'Max_'+date_colname})
         df_match_date_sup[amount_colname+"_total"] = df_match_date_sup[amount_colname]
     else : df_match_date_sup = pd.DataFrame()
@@ -124,7 +124,7 @@ def merge_duplicates_by_date(df_duplicates: pd.DataFrame, *args, **kwargs) -> pd
         - id_right: Unique identifier column for the right DataFrame.
         - amount_colname: Amount column name (default 'amount').
         - date_colname: Date column name (default 'effective_date').
-        - colonne_nomClient: Client name column name (default 'clientname').
+        - clientname_col: Client name column name (default 'clientname').
         - amount_threshold: Threshold amount for matching (default 5).
 
     Returns:
@@ -136,11 +136,11 @@ def merge_duplicates_by_date(df_duplicates: pd.DataFrame, *args, **kwargs) -> pd
     id_right = kwargs.get('id_right')
     amount_colname = kwargs.get('amount_colname', 'amount')
     date_colname = kwargs.get('date_colname', 'effective_date')
-    colonne_nomClient = kwargs.get('colonne_nomClient', 'clientname')
+    clientname_col = kwargs.get('clientname_col', 'clientname')
     amount_threshold = kwargs.get('amount_threshold', 5)
     
     # Create combo name column
-    df_duplicates.loc[:,'nompaiement_nombo'] = df_duplicates[colonne_nomClient] + '|' + df_duplicates.subscriber_name # créer la colonne combo des noms
+    df_duplicates.loc[:,'nompaiement_nombo'] = df_duplicates[clientname_col] + '|' + df_duplicates.subscriber_name # créer la colonne combo des noms
     columns_left.append('nompaiement_nombo')
     columns_right.append('nompaiement_nombo')
     

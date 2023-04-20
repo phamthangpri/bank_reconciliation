@@ -1,6 +1,8 @@
 import datetime as dt
 import pandas as pd
 import numpy as np
+import pandas as pd
+from typing import List, Optional, Tuple
 from utils.utils import *
 from mapping_transfer_check.basic_functions import *
 from mapping_transfer_check.duplicates_functions import *
@@ -16,7 +18,7 @@ The general idea: we will progressively populate the df_rapproche dataframe with
         + payment_id: Name of the system ID column (unique ID) in the payment table
         + amount_threshold: Acceptance threshold on the amount for matching
         + motif: The method of matching (unique payment / npaiement_1ord, etc.) to trigger the function and to flag in the final result
-        + nb_jours_intervalle: Maximum number of days accepted between the creation date of the orders and the payment date
+        + nb_days_period: Maximum number of days accepted between the creation date of the orders and the payment date
         + min_score: Minimum accepted percentage for the similarity score
 '''
 
@@ -56,9 +58,9 @@ def mapping_unique_payment(
     amount_threshold = kwargs.get('amount_threshold', 5)
     min_score = kwargs.get('min_score', 90)
     
-    for colonne_nomClient in list_cols_Clientname:
+    for clientname_col in list_cols_Clientname:
         df_match = rapprocher_paiement_bo_basic(
-            df_payment, df_BO, colonne_nomClient, date_colname, amount_colname, payment_id,
+            df_payment, df_BO, clientname_col, date_colname, amount_colname, payment_id,
             amount_threshold, min_score
         )
         df_match['motif'] = motif
@@ -94,7 +96,7 @@ def mapping_npaiement_1ord(
         - amount_colname (Optional[str]): Name of the Amount column in the payment table.
         - payment_id (Optional[str]): Name of the system ID column (unique ID) in the payment table.
         - motif (Optional[str]): The method of matching to flag in the final result.
-        - nb_jours_intervalle (int): Maximum number of days accepted between the creation date of the orders and the payment date.
+        - nb_days_period (int): Maximum number of days accepted between the creation date of the orders and the payment date.
         - amount_threshold (float): Acceptance threshold on the amount for matching.
         - min_score (int): Minimum accepted percentage for the similarity score.
         - is_lightcheck (bool): Flag to indicate if a light check should be performed.
@@ -107,26 +109,26 @@ def mapping_npaiement_1ord(
     amount_colname = kwargs.get('amount_colname')
     payment_id = kwargs.get('payment_id')
     motif = kwargs.get('motif')
-    nb_jours_intervalle = kwargs.get('nb_jours_intervalle', 2)
+    nb_days_period = kwargs.get('nb_days_period', 2)
     amount_threshold = kwargs.get('amount_threshold', 5)
     min_score = kwargs.get('min_score', 90)
     is_lightcheck = kwargs.get('is_lightcheck', False)
 
     # Calculate the number of days to aggregate
-    nbdays_agreges = int(nb_jours_intervalle / 2)
-    for colonne_nomClient in list_cols_Clientname:
+    nbdays_agreges = int(nb_days_period / 2)
+    for clientname_col in list_cols_Clientname:
         date_colname_2 = 'Max_' + date_colname
         amount_colname_2 = amount_colname + '_total'
         step = 2
         for nb_days in np.arange(4, nbdays_agreges + step, step=step):
             # Aggregate payment data by date interval
-            df_payment_agg = aggregate_by_date(df_payment, payment_id, colonne_nomClient, date_colname, amount_colname, nb_days)
+            df_payment_agg = aggregate_by_date(df_payment, payment_id, clientname_col, date_colname, amount_colname, nb_days)
             if len(df_payment_agg) > 0:
                 # Match with the aggregated payment
                 if is_lightcheck:
-                    df_match = create_light_check(df_payment_agg, df_BO, colonne_nomClient, date_colname_2, amount_colname_2, payment_id, amount_threshold)
+                    df_match = create_light_check(df_payment_agg, df_BO, clientname_col, date_colname_2, amount_colname_2, payment_id, amount_threshold)
                 else:
-                    df_match = rapprocher_paiement_bo_basic(df_payment_agg, df_BO, colonne_nomClient, date_colname_2, amount_colname_2, payment_id,
+                    df_match = rapprocher_paiement_bo_basic(df_payment_agg, df_BO, clientname_col, date_colname_2, amount_colname_2, payment_id,
                                                             amount_threshold, min_score)
                 if len(df_match) > 0:
                     list_col = list(df_BO.columns)
@@ -165,7 +167,7 @@ def mapping_1paiement_nord(
         - amount_colname (Optional[str]): Name of the Amount column in the payment table.
         - payment_id (Optional[str]): Name of the system ID column (unique ID) in the payment table.
         - motif (Optional[str]): The method of matching to flag in the final result.
-        - nb_jours_intervalle (int): Maximum number of days accepted between the creation date of the orders and the payment date.
+        - nb_days_period (int): Maximum number of days accepted between the creation date of the orders and the payment date.
         - amount_threshold (float): Acceptance threshold on the amount for matching.
         - min_score (int): Minimum accepted percentage for the similarity score.
 
@@ -177,29 +179,29 @@ def mapping_1paiement_nord(
     amount_colname = kwargs.get('amount_colname')
     payment_id = kwargs.get('payment_id')
     motif = kwargs.get('motif')
-    nb_jours_intervalle = kwargs.get('nb_jours_intervalle', 2)
+    nb_days_period = kwargs.get('nb_days_period', 2)
     amount_threshold = kwargs.get('amount_threshold', 5)
     min_score = kwargs.get('min_score', 90)
 
     # Calculate the number of days to aggregate
-    nbdays_agreges = int(nb_jours_intervalle / 2)
+    nbdays_agreges = int(nb_days_period / 2)
     step = 5
     for nb_days in np.arange(10, nbdays_agreges + step, step=step):
-        colonne_nomClient_bo = 'subscriber_name'
+        clientname_col_bo = 'subscriber_name'
         payment_id_bo = 'order_id'
         date_colname_bo = 'creation_date'
         amount_colname_bo = 'total_amount'
 
         # Aggregate BO orders by date interval
-        df_BO_agg = aggregate_by_date(df_BO, payment_id_bo, colonne_nomClient_bo, date_colname_bo, amount_colname_bo, nb_days)
+        df_BO_agg = aggregate_by_date(df_BO, payment_id_bo, clientname_col_bo, date_colname_bo, amount_colname_bo, nb_days)
         if len(df_BO_agg) > 0:
             df_BO_agg['Start_Date'] = df_BO_agg['creation_date']
-            df_BO_agg['End_Date'] = df_BO_agg['creation_date'] + dt.timedelta(days=nb_jours_intervalle)
+            df_BO_agg['End_Date'] = df_BO_agg['creation_date'] + dt.timedelta(days=nb_days_period)
 
-            for colonne_nomClient in list_cols_Clientname:
+            for clientname_col in list_cols_Clientname:
                 # Match with aggregated BO data
                 df_match = rapprocher_paiement_bo_basic(
-                    df_payment, df_BO_agg, colonne_nomClient, date_colname, amount_colname, payment_id,
+                    df_payment, df_BO_agg, clientname_col, date_colname, amount_colname, payment_id,
                     amount_threshold, min_score
                 )
                 df_BO_agg = df_BO_agg[~df_BO_agg['order_id'].isin(df_match['order_id'])]
@@ -241,7 +243,7 @@ def mapping_npeople(
         - amount_colname (Optional[str]): Name of the Amount column in the payment table.
         - payment_id (Optional[str]): Name of the system ID column (unique ID) in the payment table.
         - motif (Optional[str]): The method of matching to flag in the final result.
-        - nb_jours_intervalle (int): Maximum number of days accepted between the creation date of the orders and the payment date.
+        - nb_days_period (int): Maximum number of days accepted between the creation date of the orders and the payment date.
         - amount_threshold (float): Acceptance threshold on the amount for matching.
         - min_score (int): Minimum accepted percentage for the similarity score.
         - is_bo (bool): Flag to indicate if the matching involves BO data.
@@ -254,7 +256,7 @@ def mapping_npeople(
     amount_colname = kwargs.get('amount_colname')
     payment_id = kwargs.get('payment_id')
     motif = kwargs.get('motif')
-    nb_jours_intervalle = kwargs.get('nb_jours_intervalle', 2)
+    nb_days_period = kwargs.get('nb_days_period', 2)
     amount_threshold = kwargs.get('amount_threshold', 5)
     min_score = kwargs.get('min_score', 90)
     is_bo = kwargs.get('is_bo', True)
@@ -270,7 +272,7 @@ def mapping_npeople(
 
         # Add Start_Date and End_Date columns
         df_BO_2pp['Start_Date'] = df_BO_2pp['creation_date']
-        df_BO_2pp['End_Date'] = df_BO_2pp['creation_date'] + dt.timedelta(days=nb_jours_intervalle)
+        df_BO_2pp['End_Date'] = df_BO_2pp['creation_date'] + dt.timedelta(days=nb_days_period)
 
         # Match with date and product only
         df_match = mapping_approximately(df_payment, df_BO_2pp, amount_colname, date_colname, amount_threshold=-1000)
@@ -306,7 +308,7 @@ def mapping_npeople(
 
     return df_rapproche, df_payment, df_BO
 
-def mapping_lightcheck_paiementunique(
+def mapping_lightcheck_uniquepayment(
     df_rapproche: pd.DataFrame, 
     df_payment: pd.DataFrame, 
     df_BO: pd.DataFrame, 
@@ -328,7 +330,7 @@ def mapping_lightcheck_paiementunique(
         - payment_id (Optional[str]): Name of the system ID column (unique ID) in the payment table.
         - motif (Optional[str]): The method of matching to flag in the final result.
         - amount_threshold (float): Acceptance threshold on the amount for matching.
-        - colonne_nom_bo (str): Column name in the BO table for the subscriber name.
+        - bo_name_col (str): Column name in the BO table for the subscriber name.
 
     Returns:
     - Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: Updated DataFrames for matched records, remaining payments, and remaining BO orders.
@@ -339,13 +341,13 @@ def mapping_lightcheck_paiementunique(
     payment_id = kwargs.get('payment_id')
     motif = kwargs.get('motif')
     amount_threshold = kwargs.get('amount_threshold', 5)
-    colonne_nom_bo = kwargs.get('colonne_nom_bo', 'subscriber_name')
+    bo_name_col = kwargs.get('bo_name_col', 'subscriber_name')
 
     # Loop through each client name column to perform light check matching
-    for colonne_nomClient in list_cols_Clientname:
+    for clientname_col in list_cols_Clientname:
         # Create light check matches
-        df_match = create_light_check(df_payment, df_BO, colonne_nomClient, date_colname,
-                                      amount_colname, payment_id, amount_threshold, colonne_nom_bo)
+        df_match = create_light_check(df_payment, df_BO, clientname_col, date_colname,
+                                      amount_colname, payment_id, amount_threshold, bo_name_col)
         df_match['motif'] = motif  # Add motif to matched DataFrame
         
         # Concatenate matched records to df_rapproche
