@@ -29,6 +29,7 @@ def agreger_par_interval_date(df_paiement: pd.DataFrame, *args, **kwargs) -> pd.
     # Etape 1: agréger les virements pour la même date et même personne pour éviter les doublons dans les étapes suivantes
     ### ie concaténer paiement1 et paiement2 => ça devient paiement12
     # 2.1 ajouter l'intervale 
+    # Filter and aggregate by the same date and same person to avoid duplicates
     df_paiement = df_paiement[(df_paiement[colonne_nomClient]!='') & (~df_paiement[colonne_nomClient].isnull())]
     if len(df_paiement)>0:
         df_paiement_agrege = df_paiement.groupby(by=[colonne_nomClient,colonne_date]).\
@@ -52,11 +53,14 @@ def agreger_par_interval_date(df_paiement: pd.DataFrame, *args, **kwargs) -> pd.
         conn = sqlite3.connect(':memory:')
         df1.to_sql('df1', conn, index=False)
         df2.to_sql('df2', conn, index=False)
-        qry = f' SELECT  * ' \
-                'FROM df1 JOIN df2 ' \
-                ' ON df1.' + colonne_nomClient  + ' = df2.' + colonne_nomClient_2 + \
-                ' AND df2.'+ colonne_date_2 +' <= df1.End_date AND df2.'+colonne_date_2+' > df1.'+colonne_date
-
+        qry = f'''
+            SELECT * 
+            FROM df1 
+            JOIN df2 
+            ON df1.{colonne_nomClient} = df2.{colonne_nomClient_2}
+            AND df2.{colonne_date_2} <= df1.End_date 
+            AND df2.{colonne_date_2} > df1.{colonne_date}
+        '''
 
         df_match_date_sup = pd.read_sql_query(qry,conn)
 
