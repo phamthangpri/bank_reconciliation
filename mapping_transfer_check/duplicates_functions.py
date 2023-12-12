@@ -74,6 +74,7 @@ def agreger_par_interval_date(df_paiement: pd.DataFrame, *args, **kwargs) -> pd.
 
         # 2.4 rajouter les virements de la date de départ
         ### ajouter la ligne paiement12 et paiement12 pour faire le groupby
+         # Add initial transactions
         df_date0_to_add = df_paiement_agrege[df_paiement_agrege[id_paiement].isin(list_idsys)] 
         df_date0_to_add[id_paiement_2] = df_date0_to_add[id_paiement]
         df_date0_to_add[colonne_montant_2] = df_date0_to_add[colonne_montant]
