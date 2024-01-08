@@ -60,9 +60,3 @@ Contributions are welcome! Please fork the repository and submit a pull request 
 
 ## Author
 Thi Thang Pham
-
-## License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## Contact
-For any questions or feedback, please contact [Thi Thang Pham](https://github.com/phamthangpri).

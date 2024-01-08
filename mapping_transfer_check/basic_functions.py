@@ -3,8 +3,6 @@ import sqlite3
 from utils.utils import *
 from mapping_transfer_check.duplicates_functions import *
 
-## Ces fonctions appliquent le rapprochement sur une colonne de payeur donné VS les données BO
-
 def mapping_approximately(
     df_payment: pd.DataFrame,
     df_BO: pd.DataFrame,
