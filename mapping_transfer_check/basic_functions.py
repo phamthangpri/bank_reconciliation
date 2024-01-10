@@ -8,8 +8,8 @@ from mapping_transfer_check.duplicates_functions import *
 def mapping_approximately(
     df_payment: pd.DataFrame,
     df_BO: pd.DataFrame,
-    amount_colname: Optional[str] = None,
-    date_colname: Optional[str] = None,
+    amount_colname: str = None,
+    date_colname: str = None,
     amount_threshold: float = 5.0,
     **kwargs
 ) -> pd.DataFrame:
