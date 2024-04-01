@@ -27,114 +27,157 @@ kwargs = {
     'bo_name_col':'bo_name_col'
 }
 
-def mapping_paiement_bo(df_rapproche: pd.DataFrame,df_paiement_a_traiter: pd.DataFrame,df_BO_a_traiter: pd.DataFrame,
-                        list_cols_clientname_payment:str,mapping_type:str=None,**kwargs):
-    '''Cette fonction permet de rapprocher les paiements avec les ordres dans le BO.
-    ça va rapprocher quelques soit si c'est du mauvais compte, paiement pour pls ordres ou pls ordres pour un paiement.
-    '''
+def mapping_paiement_bo(
+    df_rapproche: pd.DataFrame,
+    df_paiement_a_traiter: pd.DataFrame,
+    df_BO_a_traiter: pd.DataFrame,
+    list_cols_clientname_payment: List[str],
+    mapping_type: Optional[str] = None,
+    **kwargs
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    This function matches payments with orders in the BO. It will match regardless of whether it's the wrong account, multiple payments for multiple orders, or multiple orders for one payment.
+
+    Parameters:
+    - df_rapproche (pd.DataFrame): DataFrame for matched orders.
+    - df_paiement_a_traiter (pd.DataFrame): DataFrame containing client payment data to process.
+    - df_BO_a_traiter (pd.DataFrame): DataFrame containing BO orders/contracts not yet processed.
+    - list_cols_clientname_payment (List[str]): List of columns regarding the payer in the payment table.
+    - mapping_type (Optional[str]): Type of mapping to perform. Can be 'basic', 'pls_pp', 'pls_paiements_diff_motifs', 'light_check_paiementunique', 'light_check_pls_paiements_1ord'.
+    - kwargs: Additional optional parameters for the mapping functions.
+
+    Returns:
+    - Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: 
+      - Matched orders DataFrame
+      - Unmatched payments DataFrame
+      - Unmatched BO orders DataFrame
+    """
+    # Initialize DataFrame for remaining payments
     df_paiement_restant = pd.DataFrame()
-    if len(df_rapproche) == 0:
-        df_rapproche['mauvais_compte']=''
-    if len(df_paiement_a_traiter)>0:
+    if df_rapproche.empty:
+        df_rapproche['mauvais_compte'] = ''
+    
+    if not df_paiement_a_traiter.empty:
         for product_code in df_paiement_a_traiter['iban_product'].unique():
-            df_paiement = df_paiement_a_traiter[df_paiement_a_traiter['iban_product']==product_code]
-            ### Spéraper la table BO en deux
-            df_BO_fonds = df_BO_a_traiter[df_BO_a_traiter.product_code==product_code]
-            df_BO_autre = df_BO_a_traiter[df_BO_a_traiter.product_code!=product_code]
+            df_paiement = df_paiement_a_traiter[df_paiement_a_traiter['iban_product'] == product_code]
+            
+            # Separate BO table into two
+            df_BO_fonds = df_BO_a_traiter[df_BO_a_traiter.product_code == product_code]
+            df_BO_autre = df_BO_a_traiter[df_BO_a_traiter.product_code != product_code]
             df_BO_a_traiter = pd.DataFrame()
-            for df_BO in [df_BO_fonds,df_BO_autre]:
-                if len(df_paiement['iban_product'].unique())==len(df_BO.product_code.unique()):
-                    mauvais_compte=False
-                else: mauvais_compte = True
+            
+            for df_BO in [df_BO_fonds, df_BO_autre]:
+                mauvais_compte = len(df_paiement['iban_product'].unique()) != len(df_BO.product_code.unique())
+                
                 if mapping_type == 'basic':
-                    #### 1. Paiement unique
-                    motif = 'paiement_unique'
-                    df_rapproche,df_paiement,df_BO = mapping_unique_payment(df_rapproche,df_paiement,df_BO,\
-                                                                            list_cols_clientname_payment,**kwargs)
-
-                    ### 2. Plusieurs paiements pour un ordre :
-                    motif = 'pls_paiement_1ord'
-                    df_rapproche,df_paiement,df_BO = mapping_npaiement_1ord(df_rapproche,df_paiement,df_BO,\
-                                                                            list_cols_clientname_payment,**kwargs)     
-
-                    ### 3. Un paiement pour plusieurs ordres
-
-                    motif = '1paiement_pls_ord'
-                    df_rapproche,df_paiement,df_BO = mapping_1paiement_nord(df_rapproche,df_paiement,df_BO,\
-                                                                            list_cols_clientname_payment,**kwargs)    
-                    mask = df_rapproche.mauvais_compte.isnull()
-                    df_rapproche.loc[mask,'mauvais_compte'] = mauvais_compte
+                    # 1. Unique Payment
+                    df_rapproche, df_paiement, df_BO = mapping_unique_payment(
+                        df_rapproche, df_paiement, df_BO, list_cols_clientname_payment, **kwargs
+                    )
+                    
+                    # 2. Multiple Payments for One Order
+                    df_rapproche, df_paiement, df_BO = mapping_npaiement_1ord(
+                        df_rapproche, df_paiement, df_BO, list_cols_clientname_payment, **kwargs
+                    )
+                    
+                    # 3. One Payment for Multiple Orders
+                    df_rapproche, df_paiement, df_BO = mapping_1paiement_nord(
+                        df_rapproche, df_paiement, df_BO, list_cols_clientname_payment, **kwargs
+                    )
+                
                 elif mapping_type == 'pls_pp':
-                    motif = 'souscription_pls_pp'
-                    df_rapproche,df_paiement,df_BO = mapping_npeople(df_rapproche,df_paiement,df_BO,
-                                                        list_cols_clientname_payment,is_bo=True,**kwargs)
-                    mask = df_rapproche.mauvais_compte.isnull()
-                    df_rapproche.loc[mask,'mauvais_compte'] = mauvais_compte
+                    df_rapproche, df_paiement, df_BO = mapping_npeople(
+                        df_rapproche, df_paiement, df_BO, list_cols_clientname_payment, is_bo=True, **kwargs
+                    )
+                
                 elif mapping_type == 'pls_paiements_diff_motifs':
-                    motif = 'pls_paiement_differents_motifs'
-                    df_match,df_paiement,df_BO = mapping_npeople(df_rapproche,df_paiement,df_BO,
-                                                    list_cols_clientname_payment,is_bo=False, **kwargs)
-                    mask = df_rapproche.mauvais_compte.isnull()
-                    df_rapproche.loc[mask,'mauvais_compte'] = mauvais_compte
+                    df_rapproche, df_paiement, df_BO = mapping_npeople(
+                        df_rapproche, df_paiement, df_BO, list_cols_clientname_payment, is_bo=False, **kwargs
+                    )
+                
                 elif mapping_type == 'light_check_paiementunique':
-                    motif = mapping_type
-                    df_rapproche, df_paiement,df_BO = mapping_lightcheck_uniquepayment(df_rapproche,df_paiement,df_BO,
-                                                        list_cols_clientname_payment,**kwargs)
-                    mask = df_rapproche.mauvais_compte.isnull()
-                    df_rapproche.loc[mask,'mauvais_compte'] = mauvais_compte
+                    df_rapproche, df_paiement, df_BO = mapping_lightcheck_paiementunique(
+                        df_rapproche, df_paiement, df_BO, list_cols_clientname_payment, **kwargs
+                    )
+                
                 elif mapping_type == 'light_check_pls_paiements_1ord':
-                    motif = mapping_type
-                    df_rapproche,df_paiement,df_BO = mapping_npaiement_1ord(df_rapproche,df_paiement,df_BO,\
-                                                        list_cols_clientname_payment,is_lightcheck = True,**kwargs ) 
-                    mask = df_rapproche.mauvais_compte.isnull()
-                    df_rapproche.loc[mask,'mauvais_compte'] = mauvais_compte
-                df_BO_a_traiter = pd.concat([df_BO_a_traiter,df_BO])
-            df_paiement_restant = pd.concat([df_paiement_restant,df_paiement])
-    return df_rapproche,df_paiement_restant,df_BO_a_traiter
+                    df_rapproche, df_paiement, df_BO = mapping_npaiement_1ord(
+                        df_rapproche, df_paiement, df_BO, list_cols_clientname_payment, is_lightcheck=True, **kwargs
+                    )
+                
+                mask = df_rapproche['mauvais_compte'].isnull()
+                df_rapproche.loc[mask, 'mauvais_compte'] = mauvais_compte
+                
+                df_BO_a_traiter = pd.concat([df_BO_a_traiter, df_BO])
+            
+            df_paiement_restant = pd.concat([df_paiement_restant, df_paiement])
+    
+    return df_rapproche, df_paiement_restant, df_BO_a_traiter
 
-def master_mapping_bo_paiement(df_paiement: pd.DataFrame,df_BO : pd.DataFrame,list_cols_clientname_payment: str=None,**kwargs):
-    '''Cette fonction permet de rapprocher tous les cas de figure :
-    + Rapprochement sur le nom de subscriber_name
-    + Rapprochement sur le nom de co_subscriber_name
-    + Rapprochement plusieurs personnes
-    + Rapprochement avec Light check
-    '''
-    ### rapprochement sur la colonne subscriber_name
+def master_mapping_bo_paiement(
+    df_paiement: pd.DataFrame,
+    df_BO: pd.DataFrame,
+    list_cols_clientname_payment: List[str] = None,
+    **kwargs
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    This function handles all cases of matching:
+    - Matching based on the subscriber_name column
+    - Matching based on the co_subscriber_name column
+    - Matching multiple people
+    - Matching with Light check
+
+    Parameters:
+    - df_paiement (pd.DataFrame): DataFrame containing client payment data.
+    - df_BO (pd.DataFrame): DataFrame containing BO orders/contracts not yet processed.
+    - list_cols_clientname_payment (List[str]): List of columns regarding the payer in the payment table.
+    - kwargs: Additional optional parameters for the matching functions.
+
+    Returns:
+    - Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: 
+      - Matched orders DataFrame
+      - Unmatched payments DataFrame
+      - Unmatched BO orders DataFrame
+    """
+    # Initialize empty DataFrame for matched orders
     df_rapproche = pd.DataFrame()
-    df_rapproche,df_paiement,df_BO = mapping_paiement_bo(df_rapproche,df_paiement,df_BO,
-                                                    list_cols_clientname_payment,mapping_type='basic',**kwargs)
 
-    ### rapprochement sur la colonne cosubscriber_name
-    df_BO = df_BO.rename(columns={'subscriber_name':'subscriber_name0',
-                                'cosubscriber_name':'subscriber_name'})
+    # Matching on the subscriber_name column
+    df_rapproche, df_paiement, df_BO = mapping_paiement_bo(
+        df_rapproche, df_paiement, df_BO, list_cols_clientname_payment, mapping_type='basic', **kwargs
+    )
+
+    # Matching on the co_subscriber_name column
+    df_BO = df_BO.rename(columns={'subscriber_name': 'subscriber_name0', 'cosubscriber_name': 'subscriber_name'})
     df_rapproche_cosub = pd.DataFrame()
-    df_rapproche_cosub,df_paiement,df_BO = mapping_paiement_bo(df_rapproche_cosub,df_paiement,df_BO,
-                                                    list_cols_clientname_payment,date_colname,mapping_type='basic',**kwargs)
-    df_BO = df_BO.rename(columns={'subscriber_name':'cosubscriber_name',
-                                'subscriber_name0':'subscriber_name'})
-    df_rapproche_cosub = df_rapproche_cosub.rename(columns={'subscriber_name':'cosubscriber_name',
-                                'subscriber_name0':'subscriber_name'})
-    df_rapproche = pd.concat([df_rapproche,df_rapproche_cosub])
+    df_rapproche_cosub, df_paiement, df_BO = mapping_paiement_bo(
+        df_rapproche_cosub, df_paiement, df_BO, list_cols_clientname_payment, mapping_type='basic', **kwargs
+    )
+    df_BO = df_BO.rename(columns={'subscriber_name': 'cosubscriber_name', 'subscriber_name0': 'subscriber_name'})
+    df_rapproche_cosub = df_rapproche_cosub.rename(columns={'subscriber_name': 'cosubscriber_name', 'subscriber_name0': 'subscriber_name'})
+    df_rapproche = pd.concat([df_rapproche, df_rapproche_cosub])
 
-    ### rapprochement sur plusieurs personnes
-    df_rapproche,df_paiement,df_BO = mapping_paiement_bo(df_rapproche,df_paiement,df_BO,
-                                                    list_cols_clientname_payment,mapping_type='pls_pp',**kwargs)
+    # Matching multiple people
+    df_rapproche, df_paiement, df_BO = mapping_paiement_bo(
+        df_rapproche, df_paiement, df_BO, list_cols_clientname_payment, mapping_type='pls_pp', **kwargs
+    )
 
+    # Matching someone making multiple payments with different accounts and reasons
+    df_rapproche, df_paiement, df_BO = mapping_paiement_bo(
+        df_rapproche, df_paiement, df_BO, list_cols_clientname_payment, mapping_type='pls_paiements_diff_motifs', **kwargs
+    )
 
-    ### quelqu'un qui fait plusieurs paiements avec des comptes, et motifs différents
-    df_rapproche,df_paiement,df_BO = mapping_paiement_bo(df_rapproche,df_paiement,df_BO,
-                                                    list_cols_clientname_payment,mapping_type='pls_paiements_diff_motifs',**kwargs)
+    # Light check for unique payment
+    df_rapproche, df_paiement, df_BO = mapping_paiement_bo(
+        df_rapproche, df_paiement, df_BO, list_cols_clientname_payment, mapping_type='light_check_paiementunique', **kwargs
+    )
 
+    # Light check for multiple payments for one order
+    df_rapproche, df_paiement, df_BO = mapping_paiement_bo(
+        df_rapproche, df_paiement, df_BO, list_cols_clientname_payment, mapping_type='light_check_pls_paiements_1ord', **kwargs
+    )
 
-    df_rapproche,df_paiement,df_BO = mapping_paiement_bo(df_rapproche,df_paiement,df_BO,
-                                                    list_cols_clientname_payment,mapping_type='light_check_paiementunique',**kwargs)
-
-
-    df_rapproche,df_paiement,df_BO = mapping_paiement_bo(df_rapproche,df_paiement,df_BO,
-                                                    list_cols_clientname_payment,mapping_type='light_check_pls_paiements_1ord',**kwargs)
-
-
-    return df_rapproche,df_paiement,df_BO
+    return df_rapproche, df_paiement, df_BO
 
 def get_categorie(motif:str=None):
     return 'Light check' if 'light_check' in motif else 'Proposition'
