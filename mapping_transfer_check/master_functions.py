@@ -96,7 +96,7 @@ def mapping_paiement_bo(
                     )
                 
                 elif mapping_type == 'light_check_paiementunique':
-                    df_rapproche, df_paiement, df_BO = mapping_lightcheck_paiementunique(
+                    df_rapproche, df_paiement, df_BO = mapping_lightcheck_uniquepayment(
                         df_rapproche, df_paiement, df_BO, list_cols_clientname_payment, **kwargs
                     )
                 
