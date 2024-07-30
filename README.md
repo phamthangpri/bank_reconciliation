@@ -1,4 +1,5 @@
 __Bank Statement Reconciliation Project__
+
 This project aims to reconcile bank statements with back office data. There are three types of transactions in bank statements: transfer, check, and direct debit.
 
 __Technical Issues__
