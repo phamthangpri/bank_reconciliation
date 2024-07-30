@@ -3,7 +3,18 @@ import pandas as pd
 import re
 from utils.utils import *
 
-def find_deposit_info(text:str = None, find_nb_check:bool = True):
+def find_deposit_info(text: str = None, find_nb_check: bool = True) -> str:
+    """
+    Extracts deposit information from the given text.
+
+    Parameters:
+        text (str): The text to extract information from.
+        find_nb_check (bool): Flag to determine if the number of checks should be extracted.
+                              If True, extracts the number of checks. If False, extracts the deposit date.
+
+    Returns:
+        str: The extracted deposit information. Returns '0' if the number of checks is not found.
+    """
     text = text.replace('NOPE','').replace('/','')
     if find_nb_check: 
         result = text.split()[0]
