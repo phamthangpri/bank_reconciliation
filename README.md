@@ -3,6 +3,7 @@ __Bank Statement Reconciliation Project__
 This project aims to reconcile bank statements with back office data. There are three types of transactions in bank statements: transfer, check, and direct debit.
 
 __Technical Issues__
+
 __- Bank Statement Data:__
 + The data is sourced from MT940 structured files. To extract the client's name in bank transfers, we use REGEX to parse the transaction motif into smaller parts.
 + Clients may make multiple bank transactions to pay for a product.
